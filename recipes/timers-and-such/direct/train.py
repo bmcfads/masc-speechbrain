@@ -60,13 +60,14 @@ class SLU(sb.Brain):
         p_seq = self.hparams.log_softmax(logits)
 
         # Compute outputs
-        p_tokens = None
-        if stage != sb.Stage.TRAIN:
+        if stage == sb.Stage.TRAIN and self.step % show_results_every != 0:
+            return p_seq, wav_lens, None
+        else:
             p_tokens, _, _, _ = self.hparams.beam_searcher(
                 encoder_out, wav_lens
             )
 
-        return p_seq, wav_lens, p_tokens
+            return p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (NLL) given predictions and targets."""
