@@ -36,12 +36,13 @@ def prepare_STOP(data_folder, save_folder, type, domains=[], flat_intents=False,
         return
     
     # If the data folders do not exist, we need to extract the data
-    if not os.path.isdir(os.path.join(data_folder, "manifests")):
+    if not os.path.isdir(os.path.join(data_folder, "stop")):
         # Check for zip file and download if it doesn't exist
         zip_location = os.path.join(data_folder, "stop.tar.gz")
         if not os.path.exists(zip_location):
             url = "https://dl.fbaipublicfiles.com/stop/stop.tar.gz"
-            download_file(url, zip_location, unpack=True)
+            download_file(url, zip_location) 
+            shutil.unpack_archive(zip_location, data_folder) # download_file doesn't handle unpacking tar.gz archives properly
         else:
             logger.info("Extracting stop.tar.gz...")
             shutil.unpack_archive(zip_location, data_folder)
