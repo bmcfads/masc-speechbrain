@@ -2,6 +2,7 @@ import logging
 import os
 import shutil
 
+from speechbrain.dataio.dataio import read_audio
 from speechbrain.utils.data_utils import download_file
 
 try:
@@ -14,6 +15,7 @@ except ImportError:
     raise ImportError(err_msg)
 
 logger = logging.getLogger(__name__)
+
 
 def prepare_STOP(data_folder, save_folder, type, domains=[], flat_intents=False, skip_prep=False):
     """
@@ -49,3 +51,66 @@ def prepare_STOP(data_folder, save_folder, type, domains=[], flat_intents=False,
 
     if not os.path.isdir(save_folder):
         os.makedirs(save_folder)
+
+    manifest_path = "stop/manifests"
+    audio_path = "stop"
+
+    splits = [
+        "train",
+        "eval",
+        "test"
+    ]
+    ID_start = 0
+    for split in splits:
+        new_filename = os.path.join(save_folder, split) + f"-all-type={type}.csv"
+        if os.path.exists(new_filename):
+            continue
+        logger.info(f"Preparing {new_filename}...")
+
+        ID = []
+        duration = []
+
+        wav = []
+        wav_format = []
+        wav_opts = []
+
+        semantics = []
+        semantics_format = []
+        semantics_opts = []
+
+        transcript = []
+        transcript_format = []
+        transcript_opts = []
+
+        filename = os.path.join(data_folder, manifest_path, split) + ".tsv"
+        df = pd.read_csv(filename, sep="\t")
+        for i in range(len(df)):
+            ID.append(ID_start + i)
+            audio_filename = os.path.join(data_folder, audio_path, df.file_id[i].replace(f"_{split}_0", f"_{split}"))
+            signal = read_audio(audio_filename)
+            duration.append(signal.shape[0] / 16000)
+
+            wav.append(audio_filename)
+            wav_format.append("wav")
+            wav_opts.append(None)
+
+            semantics.append(df.decoupled_normalized_seqlogical[i])
+            semantics_format.append("string")
+            semantics_opts.append(None)
+
+            transcript.append(df.normalized_utterance[i])
+            transcript_format.append("string")
+            transcript_opts.append(None)
+
+        new_df = pd.DataFrame(
+            {
+                "ID": ID,
+                "duration": duration,
+                "wav": wav,
+                "semantics": semantics,
+                "transcript": transcript,
+            }
+        )
+
+        new_df.to_csv(new_filename, index=False)
+        ID_start += len(df)
