@@ -46,3 +46,6 @@ def prepare_STOP(data_folder, save_folder, type, domains=[], flat_intents=False,
         else:
             logger.info("Extracting stop.tar.gz...")
             shutil.unpack_archive(zip_location, data_folder)
+
+    if not os.path.isdir(save_folder):
+        os.makedirs(save_folder)
