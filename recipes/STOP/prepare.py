@@ -2,7 +2,7 @@ import logging
 import os
 import shutil
 
-from speechbrain.dataio.dataio import read_audio
+from speechbrain.dataio.dataio import merge_csvs, read_audio
 from speechbrain.utils.data_utils import download_file
 
 try:
@@ -154,6 +154,26 @@ def prepare_STOP(data_folder, save_folder, type, train_domains=[], flat_intents=
                 df_domain_flat = df_flat[df_flat["domain"] == domain]
                 df_domain_flat.to_csv(flat_filename, index=False)
 
+    # Merge and save the .csv files for model training / testing
+    if flat_intents:
+        if train_domains:
+            train_csv_files = [f"train-{domain}-flat-type={type}.csv" for domain in train_domains]
+            eval_csv_files = [f"eval-{domain}-flat-type={type}.csv" for domain in train_domains]
+            test_csv_files = [f"test-{domain}-flat-type={type}.csv" for domain in train_domains]
+        else:
+            train_csv_files = [f"train---flat-type={type}.csv"]
+            eval_csv_files = [f"train---flat-type={type}.csv"]
+            test_csv_files = [f"train---flat-type={type}.csv"]
+    else:
+        if train_domains:
+            train_csv_files = [f"train-{domain}-type={type}.csv" for domain in train_domains]
+            eval_csv_files = [f"eval-{domain}-type={type}.csv" for domain in train_domains]
+            test_csv_files = [f"test-{domain}-type={type}.csv" for domain in train_domains]
+        else:
+            train_csv_files = [f"train---type={type}.csv"]
+            eval_csv_files = [f"train---type={type}.csv"]
+            test_csv_files = [f"train---type={type}.csv"]
 
-    # TODO: Merge .csv files for training, eval, and test based on training domains and intents 
-    #       e.g. " train-type=direct.csv", "eval-type=direct.csv", "test-type=direct.csv"
+    merge_csvs(save_folder, train_csv_files, f"train-type={type}.csv")
+    merge_csvs(save_folder, eval_csv_files, f"eval-type={type}.csv")
+    merge_csvs(save_folder, test_csv_files, f"test-type={type}.csv")
