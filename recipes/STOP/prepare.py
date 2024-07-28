@@ -17,7 +17,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def prepare_STOP(data_folder, save_folder, type, domains=[], flat_intents=False, skip_prep=False):
+def prepare_STOP(data_folder, save_folder, type, train_domains=[], flat_intents=False, skip_prep=False):
     """
     This function prepares the STOP dataset.
     If the folder does not exist, the zip file will be extracted. If the zip file does not exist, it will be downloaded.
@@ -28,7 +28,7 @@ def prepare_STOP(data_folder, save_folder, type, domains=[], flat_intents=False,
 
       "direct":{input=audio, output=semantics}
 
-    domains : list of domain to include; if empty, all domains included.
+    train_domains : list of domain to include; if empty, all domains included.
     flat_intents : if True, exclude nested intents and only use flat intents.
     skip_prep: if True, data preparation is skipped.
 
@@ -54,15 +54,28 @@ def prepare_STOP(data_folder, save_folder, type, domains=[], flat_intents=False,
 
     manifest_path = "stop/manifests"
     audio_path = "stop"
+    ID_start = 0
+
+    domains = [
+        "alarm",
+        "event",
+        "messaging",
+        "music",
+        "navigation",
+        "reminder",
+        "timer",
+        "weather",
+    ]
 
     splits = [
         "train",
         "eval",
-        "test"
+        "test",
     ]
-    ID_start = 0
+
+    # Prepare all domains manifest files.
     for split in splits:
-        new_filename = os.path.join(save_folder, split) + f"-all-type={type}.csv"
+        new_filename = os.path.join(save_folder, split) + f"---type={type}.csv"
         if os.path.exists(new_filename):
             continue
         logger.info(f"Preparing {new_filename}...")
@@ -73,6 +86,8 @@ def prepare_STOP(data_folder, save_folder, type, domains=[], flat_intents=False,
         wav = []
         wav_format = []
         wav_opts = []
+
+        domain = []
 
         semantics = []
         semantics_format = []
@@ -94,6 +109,8 @@ def prepare_STOP(data_folder, save_folder, type, domains=[], flat_intents=False,
             wav_format.append("wav")
             wav_opts.append(None)
 
+            domain.append(df.domain[i])
+
             semantics.append(df.decoupled_normalized_seqlogical[i])
             semantics_format.append("string")
             semantics_opts.append(None)
@@ -107,6 +124,7 @@ def prepare_STOP(data_folder, save_folder, type, domains=[], flat_intents=False,
                 "ID": ID,
                 "duration": duration,
                 "wav": wav,
+                "domain": domain,
                 "semantics": semantics,
                 "transcript": transcript,
             }
@@ -114,3 +132,28 @@ def prepare_STOP(data_folder, save_folder, type, domains=[], flat_intents=False,
 
         new_df.to_csv(new_filename, index=False)
         ID_start += len(df)
+
+    # Prepare domain and flat intents specific manifest files.
+    for split in splits:
+        base_filename = os.path.join(save_folder, split)
+        df_all = pd.read_csv(base_filename + f"---type={type}.csv")
+        df_flat = df_all[df_all["semantics"].str.count("IN:") == 1]
+        df_flat.to_csv(base_filename + f"---flat-type={type}.csv", index=False)
+
+        for domain in domains:
+            domain_filename = base_filename + f"-{domain}-type={type}.csv"
+            flat_filename = base_filename + f"-{domain}-flat-type={type}.csv"
+
+            if not os.path.exists(domain_filename):
+                logger.info(f"Preparing {domain_filename}...")
+                df_domain = df_all[df_all["domain"] == domain]
+                df_domain.to_csv(domain_filename, index=False)
+
+            if not os.path.exists(flat_filename):
+                logger.info(f"Preparing {flat_filename}...")
+                df_domain_flat = df_flat[df_flat["domain"] == domain]
+                df_domain_flat.to_csv(flat_filename, index=False)
+
+
+    # TODO: Merge .csv files for training, eval, and test based on training domains and intents 
+    #       e.g. " train-type=direct.csv", "eval-type=direct.csv", "test-type=direct.csv"
