@@ -38,3 +38,4 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
         },
     )
+    run_on_main(hparams["prepare_noise_data"])
