@@ -215,19 +215,16 @@ def prepare_STOP(
     merge_csvs(sb_manifest_dir, test_csv_files, test_filename)
 
     # merge_csvs() only saves to the source directory.
-    # Copy merged csvs from data folder to experiments folder.
-    shutil.copyfile(
+    # Move merged csv files from data folder to experiments folder.
+    shutil.move(
         os.path.join(sb_manifest_dir, train_filename),
         os.path.join(save_folder, train_filename),
     )
-    shutil.copyfile(
+    shutil.move(
         os.path.join(sb_manifest_dir, eval_filename),
         os.path.join(save_folder, eval_filename),
     )
-    shutil.copyfile(
+    shutil.move(
         os.path.join(sb_manifest_dir, test_filename),
         os.path.join(save_folder, test_filename),
     )
-    os.remove(os.path.join(sb_manifest_dir, train_filename))
-    os.remove(os.path.join(sb_manifest_dir, eval_filename))
-    os.remove(os.path.join(sb_manifest_dir, test_filename))
