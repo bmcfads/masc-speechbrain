@@ -24,9 +24,9 @@ def prepare_STOP(data_folder, save_folder, type, train_domains=[], flat_intents=
 
     data_folder : path to STOP dataset.
     save_folder: path where to save the csv manifest files.
-    slu_type : one of the following:
+    type : one of the following:
 
-      "direct":{input=audio, output=semantics}
+      "direct": {input=audio, output=semantics}
 
     train_domains : list of domain to include; if empty, all domains included.
     flat_intents : if True, exclude nested intents and only use flat intents.
@@ -36,30 +36,10 @@ def prepare_STOP(data_folder, save_folder, type, train_domains=[], flat_intents=
 
     if skip_prep:
         return
-
-    # If the data folders do not exist, we need to extract the data
-    if not os.path.isdir(os.path.join(data_folder, "stop")):
-        # Check for zip file and download if it doesn't exist
-        zip_location = os.path.join(data_folder, "stop.tar.gz")
-        if not os.path.exists(zip_location):
-            url = "https://dl.fbaipublicfiles.com/stop/stop.tar.gz"
-            download_file(url, zip_location) 
-            shutil.unpack_archive(zip_location, data_folder)  # download_file doesn't handle unpacking tar.gz archives properly
-        else:
-            logger.info("Extracting stop.tar.gz...")
-            shutil.unpack_archive(zip_location, data_folder)
-
-    if not os.path.isdir(save_folder):
-        os.makedirs(save_folder)
-
+    
     manifest_dir = os.path.join(data_folder, "stop/manifests")
     sb_manifest_dir = os.path.join(data_folder, manifest_dir, "speechbrain")
     audio_dir = os.path.join(data_folder, "stop")
-
-    if not os.path.isdir(sb_manifest_dir):
-        os.makedirs(sb_manifest_dir)
-
-    ID_start = 0
 
     domains = [
         "alarm",
@@ -78,6 +58,25 @@ def prepare_STOP(data_folder, save_folder, type, train_domains=[], flat_intents=
         "test",
     ]
 
+    # If the data folders do not exist, we need to extract the data
+    if not os.path.isdir(os.path.join(data_folder, "stop")):
+        # Check for zip file and download if it doesn't exist
+        zip_location = os.path.join(data_folder, "stop.tar.gz")
+        if not os.path.exists(zip_location):
+            url = "https://dl.fbaipublicfiles.com/stop/stop.tar.gz"
+            download_file(url, zip_location) 
+            shutil.unpack_archive(zip_location, data_folder)  # download_file doesn't handle unpacking tar.gz archives properly
+        else:
+            logger.info("Extracting stop.tar.gz...")
+            shutil.unpack_archive(zip_location, data_folder)
+
+    if not os.path.isdir(save_folder):
+        os.makedirs(save_folder)
+
+    if not os.path.isdir(sb_manifest_dir):
+        os.makedirs(sb_manifest_dir)
+
+    ID_start = 0
     # Prepare all domains manifest files.
     for split in splits:
         new_filename = os.path.join(sb_manifest_dir, split) + f"---type={type}.csv"
