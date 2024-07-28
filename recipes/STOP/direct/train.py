@@ -1,3 +1,22 @@
+"""
+Recipe for "direct" (speech -> semantics) SLU with ASR-based transfer learning.
+
+We encode input waveforms into features using a model trained on LibriSpeech,
+then feed the features into a seq2seq model to map them to semantics.
+
+(Adapted from the LibriSpeech seq2seq ASR recipe written by Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, and Peter Plantinga.)
+
+Run using:
+> python train.py hparams/train.yaml
+
+Authors
+ * Loren Lugosch 2020
+ * Mirco Ravanelli 2020
+
+Modified
+ * Brian McFadden 2024
+"""
+
 import logging
 import sys
 
@@ -10,7 +29,7 @@ from speechbrain.utils.distributed import if_main_process, run_on_main
 logger = logging.getLogger(__name__)
 
 
-# Define training procedure
+# Define training procedure.
 class SLU(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
@@ -26,22 +45,22 @@ class SLU(sb.Brain):
                 tokens_bos_lens
             )
 
-        # ASR encoder forward pass
+        # ASR encoder forward pass.
         with torch.no_grad():
             ASR_encoder_out = self.hparams.asr_model.encode_batch(
                 wavs.detach(), wav_lens
             )
 
-        # SLU forward pass
+        # SLU forward pass.
         encoder_out = self.hparams.slu_enc(ASR_encoder_out)
         e_in = self.hparams.output_emb(tokens_bos)
         h, _ = self.hparams.dec(e_in, encoder_out, wav_lens)
 
-        # Output layer for seq2seq log-probabilities
+        # Output layer for seq2seq log-probabilities.
         logits = self.hparams.seq_lin(h)
         p_seq = self.hparams.log_softmax(logits)
 
-        # Compute outputs
+        # Compute outputs.
         if stage == sb.Stage.TRAIN and self.step % show_results_every != 0:
             return p_seq, wav_lens, None
         else:
@@ -73,7 +92,7 @@ class SLU(sb.Brain):
         loss = loss_seq
 
         if (stage != sb.Stage.TRAIN) or (self.step % show_results_every == 0):
-            # Decode token terms to words
+            # Decode token terms to words.
             predicted_semantics = [
                 tokenizer.decode_ids(utt_seq).split(" ")
                 for utt_seq in predicted_tokens
@@ -105,7 +124,7 @@ class SLU(sb.Brain):
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
-        # Compute/store important stats
+        # Compute/store important stats.
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
@@ -150,16 +169,16 @@ def dataio_prepare(hparams):
     )
 
     if hparams["sorting"] == "ascending":
-        # we sort training data to speed up training and get better results.
+        # We sort training data to speed up training and get better results.
         train_data = train_data.filtered_sorted(sort_key="duration")
-        # when sorting do not shuffle in dataloader ! otherwise is pointless
+        # When sorting do not shuffle in dataloader ! otherwise is pointless.
         hparams["dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
         train_data = train_data.filtered_sorted(
             sort_key="duration", reverse=True
         )
-        # when sorting do not shuffle in dataloader ! otherwise is pointless
+        # When sorting do not shuffle in dataloader ! otherwise is pointless.
         hparams["dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "random":
@@ -258,14 +277,14 @@ if __name__ == "__main__":
     )
     run_on_main(hparams["prepare_noise_data"])
 
-    # here we create the datasets objects as well as tokenization and encoding
+    # Here we create the datasets objects as well as tokenization and encoding.
     (train_set, valid_set, test_set, tokenizer) = dataio_prepare(hparams)
 
-    # We download and pretrain the tokenizer
+    # We download and pretrain the tokenizer.
     run_on_main(hparams["pretrainer"].collect_files)
     hparams["pretrainer"].load_collected()
 
-    # Download pretrained ASR model
+    # Download pretrained ASR model.
     from speechbrain.inference.ASR import EncoderDecoderASR
 
     hparams["asr_model"] = EncoderDecoderASR.from_hparams(
@@ -273,7 +292,7 @@ if __name__ == "__main__":
         run_opts={"device": run_opts["device"]},
     )
 
-    # Brain class initialization
+    # Brain class initialization.
     slu_brain = SLU(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
@@ -282,7 +301,7 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # Training
+    # Training.
     slu_brain.fit(
         slu_brain.hparams.epoch_counter,
         train_set,
@@ -291,7 +310,7 @@ if __name__ == "__main__":
         valid_loader_kwargs=hparams["dataloader_opts"],
     )
 
-    # Test
+    # Testing.
     slu_brain.evaluate(
         test_set, test_loader_kwargs=hparams["dataloader_opts"], min_key="WER"
     )
