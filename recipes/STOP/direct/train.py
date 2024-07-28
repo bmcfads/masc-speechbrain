@@ -1,9 +1,139 @@
+import logging
 import sys
 
+import torch
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import if_main_process, run_on_main
+
+logger = logging.getLogger(__name__)
+
+
+# Define training procedure
+class SLU(sb.Brain):
+    def compute_forward(self, batch, stage):
+        """Forward computations from the waveform batches to the output probabilities."""
+        batch = batch.to(self.device)
+        wavs, wav_lens = batch.sig
+        tokens_bos, tokens_bos_lens = batch.tokens_bos
+
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+            tokens_bos = self.hparams.wav_augment.replicate_labels(tokens_bos)
+            tokens_bos_lens = self.hparams.wav_augment.replicate_labels(
+                tokens_bos_lens
+            )
+
+        # ASR encoder forward pass
+        with torch.no_grad():
+            ASR_encoder_out = self.hparams.asr_model.encode_batch(
+                wavs.detach(), wav_lens
+            )
+
+        # SLU forward pass
+        encoder_out = self.hparams.slu_enc(ASR_encoder_out)
+        e_in = self.hparams.output_emb(tokens_bos)
+        h, _ = self.hparams.dec(e_in, encoder_out, wav_lens)
+
+        # Output layer for seq2seq log-probabilities
+        logits = self.hparams.seq_lin(h)
+        p_seq = self.hparams.log_softmax(logits)
+
+        # Compute outputs
+        if stage == sb.Stage.TRAIN and self.step % show_results_every != 0:
+            return p_seq, wav_lens, None
+        else:
+            p_tokens, _, _, _ = self.hparams.beam_searcher(
+                encoder_out, wav_lens
+            )
+
+            return p_seq, wav_lens, p_tokens
+
+    def compute_objectives(self, predictions, batch, stage):
+        """Computes the loss (NLL) given predictions and targets."""
+
+        p_seq, wav_lens, predicted_tokens = predictions
+
+        ids = batch.id
+        tokens_eos, tokens_eos_lens = batch.tokens_eos
+
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            tokens_eos = self.hparams.wav_augment.replicate_labels(tokens_eos)
+            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
+                tokens_eos_lens
+            )
+
+        loss_seq = self.hparams.seq_cost(
+            p_seq, tokens_eos, length=tokens_eos_lens
+        )
+
+        # (No ctc loss)
+        loss = loss_seq
+
+        if (stage != sb.Stage.TRAIN) or (self.step % show_results_every == 0):
+            # Decode token terms to words
+            predicted_semantics = [
+                tokenizer.decode_ids(utt_seq).split(" ")
+                for utt_seq in predicted_tokens
+            ]
+
+            target_semantics = [wrd.split(" ") for wrd in batch.semantics]
+
+            for i in range(len(target_semantics)):
+                print(" ".join(predicted_semantics[i]))
+                print(" ".join(target_semantics[i]))
+                print("")
+
+            if stage != sb.Stage.TRAIN:
+                self.wer_metric.append(
+                    ids, predicted_semantics, target_semantics
+                )
+                self.cer_metric.append(
+                    ids, predicted_semantics, target_semantics
+                )
+
+        return loss
+
+    def on_stage_start(self, stage, epoch):
+        """Gets called at the beginning of each epoch"""
+
+        if stage != sb.Stage.TRAIN:
+            self.cer_metric = self.hparams.cer_computer()
+            self.wer_metric = self.hparams.error_rate_computer()
+
+    def on_stage_end(self, stage, stage_loss, epoch):
+        """Gets called at the end of a epoch."""
+        # Compute/store important stats
+        stage_stats = {"loss": stage_loss}
+        if stage == sb.Stage.TRAIN:
+            self.train_stats = stage_stats
+        else:
+            stage_stats["CER"] = self.cer_metric.summarize("error_rate")
+            stage_stats["WER"] = self.wer_metric.summarize("error_rate")
+
+        # Perform end-of-iteration things, like annealing, logging, etc.
+        if stage == sb.Stage.VALID:
+            old_lr, new_lr = self.hparams.lr_annealing(stage_stats["WER"])
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+            self.hparams.train_logger.log_stats(
+                stats_meta={"epoch": epoch, "lr": old_lr},
+                train_stats=self.train_stats,
+                valid_stats=stage_stats,
+            )
+            self.checkpointer.save_and_keep_only(
+                meta={"WER": stage_stats["WER"]},
+                min_keys=["WER"],
+            )
+        elif stage == sb.Stage.TEST:
+            self.hparams.train_logger.log_stats(
+                stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
+                test_stats=stage_stats,
+            )
+            if if_main_process():
+                with open(self.hparams.test_wer_file, "w") as w:
+                    self.wer_metric.write_stats(w)
 
 
 def dataio_prepare(hparams):
@@ -141,4 +271,13 @@ if __name__ == "__main__":
     hparams["asr_model"] = EncoderDecoderASR.from_hparams(
         source=hparams["asr_model_source"],
         run_opts={"device": run_opts["device"]},
+    )
+
+    # Brain class initialization
+    slu_brain = SLU(
+        modules=hparams["modules"],
+        opt_class=hparams["opt_class"],
+        hparams=hparams,
+        run_opts=run_opts,
+        checkpointer=hparams["checkpointer"],
     )
