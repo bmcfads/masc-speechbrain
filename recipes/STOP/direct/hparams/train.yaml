@@ -15,6 +15,8 @@ csv_test: !ref <save_folder>/test-type=direct.csv
 data_folder_noise: !ref <data_folder>/noise # The noisy sequences for data augmentation will automatically be downloaded here.
 noise_annotation: !ref <save_folder>/noise.csv # The data manifest files are created by the data preparation script
 
+tokenizer_file: https://huggingface.co/speechbrain/slu-timers-and-such-direct-librispeech-asr/resolve/main/tokenizer.ckpt
+
 train_domains: []
 flat_intents: True
 skip_prep: False
@@ -91,3 +93,10 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
 
 ############################## Models ##########################################
 tokenizer: !new:sentencepiece.SentencePieceProcessor
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>/STOP_tokenizer
+    loadables:
+        tokenizer: !ref <tokenizer>
+    paths:
+        tokenizer: !ref <tokenizer_file>
