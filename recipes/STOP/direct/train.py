@@ -281,3 +281,12 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
+
+    # Training
+    slu_brain.fit(
+        slu_brain.hparams.epoch_counter,
+        train_set,
+        valid_set,
+        train_loader_kwargs=hparams["dataloader_opts"],
+        valid_loader_kwargs=hparams["dataloader_opts"],
+    )
