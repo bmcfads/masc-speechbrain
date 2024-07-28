@@ -134,3 +134,11 @@ if __name__ == "__main__":
     # We download and pretrain the tokenizer
     run_on_main(hparams["pretrainer"].collect_files)
     hparams["pretrainer"].load_collected()
+
+    # Download pretrained ASR model
+    from speechbrain.inference.ASR import EncoderDecoderASR
+
+    hparams["asr_model"] = EncoderDecoderASR.from_hparams(
+        source=hparams["asr_model_source"],
+        run_opts={"device": run_opts["device"]},
+    )

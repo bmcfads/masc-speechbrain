@@ -92,6 +92,8 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
         !ref <drop_chunk>]
 
 ############################## Models ##########################################
+asr_model_source: speechbrain/asr-crdnn-rnnlm-librispeech
+
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
