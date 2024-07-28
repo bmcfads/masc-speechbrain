@@ -1,0 +1,13 @@
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+experiment: code-test
+output_folder: !ref results/<experiment>/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+data_folder: !PLACEHOLDER  # e.g, /localscratch/stop
+train_domains: []
+flat_intents: True
+skip_prep: False
