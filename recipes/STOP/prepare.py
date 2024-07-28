@@ -17,10 +17,18 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def prepare_STOP(data_folder, save_folder, type, train_domains=[], flat_intents=False, skip_prep=False):
+def prepare_STOP(
+    data_folder,
+    save_folder,
+    type,
+    train_domains=[],
+    flat_intents=False,
+    skip_prep=False,
+):
     """
     This function prepares the STOP dataset.
-    If the folder does not exist, the zip file will be extracted. If the zip file does not exist, it will be downloaded.
+    If the folder does not exist, the zip file will be extracted.
+    If the zip file does not exist, it will be downloaded.
 
     data_folder : path to STOP dataset.
     save_folder: path where to save the csv manifest files.
@@ -36,7 +44,7 @@ def prepare_STOP(data_folder, save_folder, type, train_domains=[], flat_intents=
 
     if skip_prep:
         return
-    
+
     manifest_dir = os.path.join(data_folder, "stop/manifests")
     sb_manifest_dir = os.path.join(data_folder, manifest_dir, "speechbrain")
     audio_dir = os.path.join(data_folder, "stop")
@@ -64,8 +72,9 @@ def prepare_STOP(data_folder, save_folder, type, train_domains=[], flat_intents=
         zip_location = os.path.join(data_folder, "stop.tar.gz")
         if not os.path.exists(zip_location):
             url = "https://dl.fbaipublicfiles.com/stop/stop.tar.gz"
-            download_file(url, zip_location) 
-            shutil.unpack_archive(zip_location, data_folder)  # download_file doesn't handle unpacking tar.gz archives properly
+            download_file(url, zip_location)
+            # download_file() doesn't handle unpacking tar.gz archives properly
+            shutil.unpack_archive(zip_location, data_folder)
         else:
             logger.info("Extracting stop.tar.gz...")
             shutil.unpack_archive(zip_location, data_folder)
@@ -79,7 +88,9 @@ def prepare_STOP(data_folder, save_folder, type, train_domains=[], flat_intents=
     ID_start = 0
     # Prepare all domains manifest files.
     for split in splits:
-        new_filename = os.path.join(sb_manifest_dir, split) + f"---type={type}.csv"
+        new_filename = (
+            os.path.join(sb_manifest_dir, split) + f"---type={type}.csv"
+        )
         if os.path.exists(new_filename):
             continue
         logger.info(f"Preparing {new_filename}...")
@@ -105,7 +116,9 @@ def prepare_STOP(data_folder, save_folder, type, train_domains=[], flat_intents=
         df = pd.read_csv(filename, sep="\t")
         for i in range(len(df)):
             ID.append(ID_start + i)
-            audio_filename = os.path.join(audio_dir, df.file_id[i].replace(f"_{split}_0", f"_{split}"))
+            audio_filename = os.path.join(
+                audio_dir, df.file_id[i].replace(f"_{split}_0", f"_{split}")
+            )
             signal = read_audio(audio_filename)
             duration.append(signal.shape[0] / 16000)
 
@@ -161,18 +174,33 @@ def prepare_STOP(data_folder, save_folder, type, train_domains=[], flat_intents=
     # Merge and save the .csv files for model training / testing
     if flat_intents:
         if train_domains:
-            train_csv_files = [f"train-{domain}-flat-type={type}.csv" for domain in train_domains]
-            eval_csv_files = [f"eval-{domain}-flat-type={type}.csv" for domain in train_domains]
-            test_csv_files = [f"test-{domain}-flat-type={type}.csv" for domain in train_domains]
+            train_csv_files = [
+                f"train-{domain}-flat-type={type}.csv"
+                for domain in train_domains
+            ]
+            eval_csv_files = [
+                f"eval-{domain}-flat-type={type}.csv"
+                for domain in train_domains
+            ]
+            test_csv_files = [
+                f"test-{domain}-flat-type={type}.csv"
+                for domain in train_domains
+            ]
         else:
             train_csv_files = [f"train---flat-type={type}.csv"]
             eval_csv_files = [f"train---flat-type={type}.csv"]
             test_csv_files = [f"train---flat-type={type}.csv"]
     else:
         if train_domains:
-            train_csv_files = [f"train-{domain}-type={type}.csv" for domain in train_domains]
-            eval_csv_files = [f"eval-{domain}-type={type}.csv" for domain in train_domains]
-            test_csv_files = [f"test-{domain}-type={type}.csv" for domain in train_domains]
+            train_csv_files = [
+                f"train-{domain}-type={type}.csv" for domain in train_domains
+            ]
+            eval_csv_files = [
+                f"eval-{domain}-type={type}.csv" for domain in train_domains
+            ]
+            test_csv_files = [
+                f"test-{domain}-type={type}.csv" for domain in train_domains
+            ]
         else:
             train_csv_files = [f"train---type={type}.csv"]
             eval_csv_files = [f"train---type={type}.csv"]
@@ -188,9 +216,18 @@ def prepare_STOP(data_folder, save_folder, type, train_domains=[], flat_intents=
 
     # merge_csvs() only saves to the source directory.
     # Copy merged csvs from data folder to experiments folder.
-    shutil.copyfile(os.path.join(sb_manifest_dir, train_filename), os.path.join(save_folder, train_filename))
-    shutil.copyfile(os.path.join(sb_manifest_dir, eval_filename), os.path.join(save_folder, eval_filename))
-    shutil.copyfile(os.path.join(sb_manifest_dir, test_filename), os.path.join(save_folder, test_filename))
+    shutil.copyfile(
+        os.path.join(sb_manifest_dir, train_filename),
+        os.path.join(save_folder, train_filename),
+    )
+    shutil.copyfile(
+        os.path.join(sb_manifest_dir, eval_filename),
+        os.path.join(save_folder, eval_filename),
+    )
+    shutil.copyfile(
+        os.path.join(sb_manifest_dir, test_filename),
+        os.path.join(save_folder, test_filename),
+    )
     os.remove(os.path.join(sb_manifest_dir, train_filename))
     os.remove(os.path.join(sb_manifest_dir, eval_filename))
     os.remove(os.path.join(sb_manifest_dir, test_filename))
