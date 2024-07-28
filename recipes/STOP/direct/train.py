@@ -290,3 +290,8 @@ if __name__ == "__main__":
         train_loader_kwargs=hparams["dataloader_opts"],
         valid_loader_kwargs=hparams["dataloader_opts"],
     )
+
+    # Test
+    slu_brain.evaluate(
+        test_set, test_loader_kwargs=hparams["dataloader_opts"], min_key="WER"
+    )
