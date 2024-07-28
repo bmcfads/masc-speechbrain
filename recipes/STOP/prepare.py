@@ -52,8 +52,13 @@ def prepare_STOP(data_folder, save_folder, type, train_domains=[], flat_intents=
     if not os.path.isdir(save_folder):
         os.makedirs(save_folder)
 
-    manifest_path = "stop/manifests"
-    audio_path = "stop"
+    manifest_dir = os.path.join(data_folder, "stop/manifests")
+    sb_manifest_dir = os.path.join(data_folder, manifest_dir, "speechbrain")
+    audio_dir = os.path.join(data_folder, "stop")
+
+    if not os.path.isdir(sb_manifest_dir):
+        os.makedirs(sb_manifest_dir)
+
     ID_start = 0
 
     domains = [
@@ -75,7 +80,7 @@ def prepare_STOP(data_folder, save_folder, type, train_domains=[], flat_intents=
 
     # Prepare all domains manifest files.
     for split in splits:
-        new_filename = os.path.join(save_folder, split) + f"---type={type}.csv"
+        new_filename = os.path.join(sb_manifest_dir, split) + f"---type={type}.csv"
         if os.path.exists(new_filename):
             continue
         logger.info(f"Preparing {new_filename}...")
@@ -97,11 +102,11 @@ def prepare_STOP(data_folder, save_folder, type, train_domains=[], flat_intents=
         transcript_format = []
         transcript_opts = []
 
-        filename = os.path.join(data_folder, manifest_path, split) + ".tsv"
+        filename = os.path.join(manifest_dir, split) + ".tsv"
         df = pd.read_csv(filename, sep="\t")
         for i in range(len(df)):
             ID.append(ID_start + i)
-            audio_filename = os.path.join(data_folder, audio_path, df.file_id[i].replace(f"_{split}_0", f"_{split}"))
+            audio_filename = os.path.join(audio_dir, df.file_id[i].replace(f"_{split}_0", f"_{split}"))
             signal = read_audio(audio_filename)
             duration.append(signal.shape[0] / 16000)
 
@@ -135,7 +140,7 @@ def prepare_STOP(data_folder, save_folder, type, train_domains=[], flat_intents=
 
     # Prepare domain and flat intents specific manifest files.
     for split in splits:
-        base_filename = os.path.join(save_folder, split)
+        base_filename = os.path.join(sb_manifest_dir, split)
         df_all = pd.read_csv(base_filename + f"---type={type}.csv")
         df_flat = df_all[df_all["semantics"].str.count("IN:") == 1]
         df_flat.to_csv(base_filename + f"---flat-type={type}.csv", index=False)
@@ -174,6 +179,19 @@ def prepare_STOP(data_folder, save_folder, type, train_domains=[], flat_intents=
             eval_csv_files = [f"train---type={type}.csv"]
             test_csv_files = [f"train---type={type}.csv"]
 
-    merge_csvs(save_folder, train_csv_files, f"train-type={type}.csv")
-    merge_csvs(save_folder, eval_csv_files, f"eval-type={type}.csv")
-    merge_csvs(save_folder, test_csv_files, f"test-type={type}.csv")
+    train_filename = f"train-type={type}.csv"
+    eval_filename = f"eval-type={type}.csv"
+    test_filename = f"test-type={type}.csv"
+
+    merge_csvs(sb_manifest_dir, train_csv_files, train_filename)
+    merge_csvs(sb_manifest_dir, eval_csv_files, eval_filename)
+    merge_csvs(sb_manifest_dir, test_csv_files, test_filename)
+
+    # merge_csvs() only saves to the source directory.
+    # Copy merged csvs from data folder to experiments folder.
+    shutil.copyfile(os.path.join(sb_manifest_dir, train_filename), os.path.join(save_folder, train_filename))
+    shutil.copyfile(os.path.join(sb_manifest_dir, eval_filename), os.path.join(save_folder, eval_filename))
+    shutil.copyfile(os.path.join(sb_manifest_dir, test_filename), os.path.join(save_folder, test_filename))
+    os.remove(os.path.join(sb_manifest_dir, train_filename))
+    os.remove(os.path.join(sb_manifest_dir, eval_filename))
+    os.remove(os.path.join(sb_manifest_dir, test_filename))
