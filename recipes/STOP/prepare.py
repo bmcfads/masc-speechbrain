@@ -17,6 +17,45 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def decoupled_normalized_seqlogical_to_dict(input):
+    results = {}
+
+    if not isinstance(input, str):
+        return results, 0
+
+    tokens = input.replace("'", "|").split()
+    results["intent"] = tokens[0][4:]
+
+    slots = {}
+    slot_key = ""
+    slot_value = []
+    i = 0
+    while i < len(tokens):
+        i += 1
+        if "[IN:" in tokens[i]:
+            slot_value, n = decoupled_normalized_seqlogical_to_dict(
+                " ".join(tokens[i:])
+            )
+            i += n  # Skip forward to unparsed portion of input.
+        elif "[SL:" in tokens[i]:
+            slot_key = tokens[i][4:]
+        elif "]" == tokens[i] and slot_key:
+            slots[slot_key] = (
+                slot_value
+                if isinstance(slot_value, dict)
+                else " ".join(slot_value)
+            )
+            slot_key = ""
+            slot_value = []
+        elif "]" == tokens[i]:
+            break
+        else:
+            slot_value.append(tokens[i])
+    results["slots"] = slots
+
+    return results, i
+
+
 def prepare_STOP(
     data_folder,
     save_folder,
@@ -128,7 +167,10 @@ def prepare_STOP(
 
             domain.append(df.domain[i])
 
-            semantics.append(df.decoupled_normalized_seqlogical[i])
+            semantics_, _ = decoupled_normalized_seqlogical_to_dict(
+                df.decoupled_normalized_seqlogical[i]
+            )
+            semantics.append(str(semantics_))
             semantics_format.append("string")
             semantics_opts.append(None)
 
@@ -154,7 +196,7 @@ def prepare_STOP(
     for split in splits:
         base_filename = os.path.join(sb_manifest_dir, split)
         df_all = pd.read_csv(base_filename + f"---type={type}.csv")
-        df_flat = df_all[df_all["semantics"].str.count("IN:") == 1]
+        df_flat = df_all[df_all["semantics"].str.count("intent") == 1]
         df_flat.to_csv(base_filename + f"---flat-type={type}.csv", index=False)
 
         for domain in domains:
