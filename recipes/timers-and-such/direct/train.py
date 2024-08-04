@@ -93,7 +93,7 @@ class SLU(sb.Brain):
         if (stage != sb.Stage.TRAIN) or (self.step % show_results_every == 0):
             # Decode token terms to words
             predicted_semantics = [
-                tokenizer.decode_ids(utt_seq).split(" ")
+                tokenizer.decode_ids(utt_seq[:-1]).split(" ")
                 for utt_seq in predicted_tokens
             ]
 
