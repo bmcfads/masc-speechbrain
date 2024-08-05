@@ -130,6 +130,7 @@ class SLU(sb.Brain):
         else:
             stage_stats["CER"] = self.cer_metric.summarize("error_rate")
             stage_stats["WER"] = self.wer_metric.summarize("error_rate")
+            stage_stats["SER"] = self.wer_metric.summarize("SER")
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
@@ -141,8 +142,8 @@ class SLU(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]},
-                min_keys=["WER"],
+                meta={"SER": stage_stats["SER"]},
+                min_keys=["SER"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -303,5 +304,5 @@ if __name__ == "__main__":
 
     # Testing.
     slu_brain.evaluate(
-        test_set, test_loader_kwargs=hparams["dataloader_opts"], min_key="WER"
+        test_set, test_loader_kwargs=hparams["dataloader_opts"], min_key="SER"
     )
