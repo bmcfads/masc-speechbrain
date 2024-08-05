@@ -66,14 +66,14 @@ def prepare_STOP(
         "test",
     ]
 
-    # If the data folders do not exist, we need to extract the data
+    # If the data folders do not exist, we need to extract the data.
     if not os.path.isdir(os.path.join(data_folder, "stop")):
-        # Check for zip file and download if it doesn't exist
+        # Check for zip file and download if it doesn't exist.
         zip_location = os.path.join(data_folder, "stop.tar.gz")
         if not os.path.exists(zip_location):
             url = "https://dl.fbaipublicfiles.com/stop/stop.tar.gz"
             download_file(url, zip_location)
-            # download_file() doesn't handle unpacking tar.gz archives properly
+            # download_file() doesn't handle unpacking tar.gz archives properly.
             shutil.unpack_archive(zip_location, data_folder)
         else:
             logger.info("Extracting stop.tar.gz...")
@@ -171,7 +171,7 @@ def prepare_STOP(
                 df_domain_flat = df_flat[df_flat["domain"] == domain]
                 df_domain_flat.to_csv(flat_filename, index=False)
 
-    # Merge and save the .csv files for model training / testing
+    # Merge and save the csv files for model training / testing.
     if flat_intents:
         if train_domains:
             train_csv_files = [

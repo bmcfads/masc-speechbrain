@@ -5,14 +5,14 @@
 # Tokens: BPE with unigram
 # Losses: NLL
 # Training: STOP
-# Authors:  Loren Lugosch, Mirco Ravanelli 2020
-# Modified: Brian McFadden 2024
+# Authors:  Brian McFadden 2024 
+#   (original: Timers-and-Such - Loren Lugosch, Mirco Ravanelli 2020)
 # ############################################################################
 
 # Seed needs to be set at top of .yaml file, before objects with parameters are made.
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-experiment: code-test
+experiment: recipe-testing
 output_folder: !ref results/<experiment>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -30,7 +30,7 @@ noise_annotation: !ref <save_folder>/noise.csv # The data manifest files are cre
 tokenizer_file: 50_unigram.model
 
 ckpt_interval_minutes: 15
-train_domains: []
+train_domains: []  # [ "alarm", "event", "messaging", "music", "navigation", "reminder", "timer", "weather"]; [] for all. 
 flat_intents: True
 skip_prep: False
 

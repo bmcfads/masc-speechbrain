@@ -10,11 +10,10 @@ Run using:
 > python train.py hparams/train.yaml
 
 Authors
- * Loren Lugosch 2020
- * Mirco Ravanelli 2020
-
-Modified
  * Brian McFadden 2024
+ (original: Timers-and-Such
+   * Loren Lugosch 2020
+   * Mirco Ravanelli 2020)
 """
 
 import logging
@@ -88,7 +87,7 @@ class SLU(sb.Brain):
             p_seq, tokens_eos, length=tokens_eos_lens
         )
 
-        # (No ctc loss)
+        # (No CTC loss)
         loss = loss_seq
 
         if (stage != sb.Stage.TRAIN) or (self.step % show_results_every == 0):
@@ -160,12 +159,8 @@ def dataio_prepare(hparams):
     It also defines the data processing pipeline through user-defined functions.
     """
 
-    data_folder = hparams["data_folder"]
-
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_train"],
-        # Unnecessary replacement(?) > prepare.py stores absolute path
-        replacements={"data_root": data_folder},
+        csv_path=hparams["csv_train"]
     )
 
     if hparams["sorting"] == "ascending":
@@ -190,16 +185,12 @@ def dataio_prepare(hparams):
         )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_valid"],
-        # Unnecessary replacement(?) > prepare.py stores absolute path
-        replacements={"data_root": data_folder},
+        csv_path=hparams["csv_valid"]
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_test"],
-        # Unnecessary replacement(?) > prepare.py stores absolute path
-        replacements={"data_root": data_folder},
+        csv_path=hparams["csv_test"]
     )
     test_data = test_data.filtered_sorted(sort_key="duration")
 
@@ -280,7 +271,7 @@ if __name__ == "__main__":
     # Here we create the datasets objects as well as tokenization and encoding.
     (train_set, valid_set, test_set, tokenizer) = dataio_prepare(hparams)
 
-    # We download and pretrain the tokenizer.
+    # Download pretrained tokenizer model.
     run_on_main(hparams["pretrainer"].collect_files)
     hparams["pretrainer"].load_collected()
 
